@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Catalog, Product, Category, ThemeConfig } from '../../types/catalog';
 import { catalogRepository } from '../../services';
+import { parseCatalogHtml, syncCatalogDataToHtml } from '../../lib/parser';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Building2, 
@@ -110,6 +111,12 @@ export const WizardContainer: React.FC = () => {
     if (currentStep === '01' && !catalog.business.name.trim()) {
       alert("Nama Bisnis / Toko wajib diisi terlebih dahulu!");
       return;
+    }
+    if (currentStep === '05' && catalog.htmlContent && !catalog.sanitizedHtml) {
+      const parsed = parseCatalogHtml(catalog.htmlContent, catalog);
+      if (parsed.sanitizedHtml) {
+        catalog.sanitizedHtml = syncCatalogDataToHtml(parsed.sanitizedHtml, catalog);
+      }
     }
     await handleSaveDraft();
     const stepIdx = WIZARD_STEPS.findIndex(s => s.id === currentStep);

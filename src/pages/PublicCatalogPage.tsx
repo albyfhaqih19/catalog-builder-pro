@@ -108,7 +108,7 @@ export const PublicCatalogPage: React.FC = () => {
     const finalHtmlDocument = ensureStylesInHtml(syncedHtml);
 
     return (
-      <div className="min-h-screen flex flex-col bg-slate-950">
+      <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
         {/* Top Navbar */}
         <nav className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 shrink-0">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -139,14 +139,11 @@ export const PublicCatalogPage: React.FC = () => {
           </div>
         </nav>
 
-        {/* Public Canvas Container */}
-        <div className="flex-1 w-full h-[calc(100vh-53px)] bg-slate-950">
-          <iframe
-            title={catalog.name}
-            srcDoc={finalHtmlDocument}
-            className="w-full h-full border-none"
-          />
-        </div>
+        {/* Public Native Canvas Container */}
+        <div
+          className="flex-1 w-full bg-slate-950 p-4 sm:p-8"
+          dangerouslySetInnerHTML={{ __html: finalHtmlDocument }}
+        />
       </div>
     );
   }
