@@ -48,6 +48,75 @@ export function parseCatalogHtml(rawHtml: string, catalog: Catalog): ParseResult
   };
 }
 
+export function extractProductsAndBusinessFromHtml(html: string, currentCatalog: Catalog): { products: Product[]; business: any } {
+  if (!html) return { products: currentCatalog.products, business: currentCatalog.business };
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    const business = { ...currentCatalog.business };
+    const bizNameEl = doc.querySelector('[data-cb-field="business-name"]');
+    if (bizNameEl && bizNameEl.textContent?.trim()) {
+      business.name = bizNameEl.textContent.trim();
+    }
+    const bizDescEl = doc.querySelector('[data-cb-field="business-description"]');
+    if (bizDescEl && bizDescEl.textContent?.trim()) {
+      business.description = bizDescEl.textContent.trim();
+    }
+    const bizLogoEl = doc.querySelector('[data-cb-field="business-logo"], [data-cb-field="logo"]');
+    if (bizLogoEl && bizLogoEl.getAttribute('src')) {
+      business.logo = bizLogoEl.getAttribute('src') || business.logo;
+    }
+
+    const productCards = doc.querySelectorAll('[data-cb-type="product-card"], [data-cb-id]');
+    const extractedProducts: Product[] = [];
+    const processedIds = new Set<string>();
+
+    productCards.forEach((card, idx) => {
+      const cbId = card.getAttribute('data-cb-id') || `prod-${idx + 1}`;
+      if (processedIds.has(cbId)) return;
+      processedIds.add(cbId);
+
+      const nameEl = card.querySelector('[data-cb-field="name"]') || (card.getAttribute('data-cb-field') === 'name' ? card : null);
+      const priceEl = card.querySelector('[data-cb-field="price"]');
+      const descEl = card.querySelector('[data-cb-field="description"]');
+      const badgeEl = card.querySelector('[data-cb-field="badge"]');
+      const imgEl = card.querySelector('[data-cb-field="image"]');
+
+      const name = nameEl?.textContent?.trim() || `Produk ${idx + 1}`;
+      const desc = descEl?.textContent?.trim() || '';
+      const badge = badgeEl?.textContent?.trim() || '';
+      const imgSrc = imgEl?.getAttribute('src') || (card.tagName.toLowerCase() === 'img' ? card.getAttribute('src') : '') || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
+
+      let price = 50000;
+      if (priceEl && priceEl.textContent) {
+        const nums = priceEl.textContent.replace(/[^0-9]/g, '');
+        if (nums) price = parseInt(nums, 10);
+      }
+
+      extractedProducts.push({
+        id: cbId,
+        name,
+        sku: `PRD-00${idx + 1}`,
+        categoryId: 'cat-1',
+        price,
+        description: desc,
+        images: [imgSrc],
+        badge: badge || undefined,
+        stockStatus: 'available',
+        ctaText: 'Pesan Sekarang',
+      });
+    });
+
+    return {
+      products: extractedProducts.length > 0 ? extractedProducts : currentCatalog.products,
+      business,
+    };
+  } catch {
+    return { products: currentCatalog.products, business: currentCatalog.business };
+  }
+}
+
 export function syncCatalogDataToHtml(html: string, catalog: Catalog): string {
   if (!html) return '';
   const parser = new DOMParser();

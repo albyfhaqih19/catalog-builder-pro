@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Catalog } from '../../types/catalog';
-import { parseCatalogHtml, syncCatalogDataToHtml } from '../../lib/parser';
+import { parseCatalogHtml, syncCatalogDataToHtml, extractProductsAndBusinessFromHtml } from '../../lib/parser';
 import { catalogRepository } from '../../services';
 import { FileCode, ShieldCheck, Check, AlertTriangle, ArrowRight, Trash2 } from 'lucide-react';
 
@@ -34,13 +34,16 @@ export const StepImport: React.FC<StepImportProps> = ({ catalog, onImportSuccess
       return;
     }
 
-    // Sync current product structured data into parsed HTML
-    const syncedHtml = syncCatalogDataToHtml(parseResult.sanitizedHtml, catalog);
+    // Extract structured products & business info from imported HTML
+    const extracted = extractProductsAndBusinessFromHtml(cleanedCode, catalog);
 
     const updatedCatalog: Catalog = {
       ...catalog,
+      name: extracted.business?.name || catalog.name,
+      business: extracted.business,
+      products: extracted.products,
       htmlContent: cleanedCode,
-      sanitizedHtml: syncedHtml,
+      sanitizedHtml: parseResult.sanitizedHtml,
     };
 
     // Auto-persist catalog to storage immediately
