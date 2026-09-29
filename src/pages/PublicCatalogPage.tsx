@@ -104,8 +104,7 @@ export const PublicCatalogPage: React.FC = () => {
   // IF CATALOG HAS CUSTOM HTML FROM CHATGPT/GEMINI -> RENDER 100% IDENTICAL CUSTOM HTML!
   if (catalog.sanitizedHtml || catalog.htmlContent) {
     const rawCustom = catalog.sanitizedHtml || catalog.htmlContent || '';
-    const syncedHtml = syncCatalogDataToHtml(rawCustom, catalog);
-    const finalHtmlDocument = ensureStylesInHtml(syncedHtml);
+    const finalHtmlDocument = ensureStylesInHtml(rawCustom);
 
     return (
       <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
