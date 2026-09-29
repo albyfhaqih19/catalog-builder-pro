@@ -138,11 +138,14 @@ export const PublicCatalogPage: React.FC = () => {
           </div>
         </nav>
 
-        {/* Public Native Canvas Container */}
-        <div
-          className="flex-1 w-full bg-slate-950 p-4 sm:p-8"
-          dangerouslySetInnerHTML={{ __html: finalHtmlDocument }}
-        />
+        {/* Public Full-Viewport Frame */}
+        <div className="flex-1 w-full bg-slate-950">
+          <iframe
+            title={catalog.name}
+            srcDoc={finalHtmlDocument}
+            style={{ width: '100%', height: 'calc(100vh - 56px)', minHeight: '850px', border: 'none' }}
+          />
+        </div>
       </div>
     );
   }
