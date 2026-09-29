@@ -35,7 +35,10 @@ function catalogToDbPayload(catalog: Catalog) {
 }
 
 function dbRowToCatalog(row: any, localFallback?: Catalog | null): Catalog {
-  const themeObj = row.theme || {};
+  let themeObj = row.theme || {};
+  if (typeof themeObj === 'string') {
+    try { themeObj = JSON.parse(themeObj); } catch {}
+  }
   const htmlContent = row.htmlContent || themeObj.htmlContent || localFallback?.htmlContent || '';
   const sanitizedHtml = row.sanitizedHtml || themeObj.sanitizedHtml || localFallback?.sanitizedHtml || '';
 
