@@ -2,19 +2,28 @@ import JSZip from 'jszip';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Catalog } from '../types/catalog';
+import { syncCatalogDataToHtml } from './parser';
 
 export function generateStandaloneHtml(catalog: Catalog): string {
-  const customBody = catalog.sanitizedHtml || generateDefaultCatalogHtml(catalog);
+  const customBody = catalog.sanitizedHtml
+    ? syncCatalogDataToHtml(catalog.sanitizedHtml, catalog)
+    : generateDefaultCatalogHtml(catalog);
+
+  if (catalog.sanitizedHtml && catalog.sanitizedHtml.includes('<html')) {
+    return customBody;
+  }
+
   return `<!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${catalog.business.name} — Katalog Produk</title>
   <meta name="description" content="${catalog.business.description}">
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --primary: ${catalog.theme.primaryColor || '#0284c7'};

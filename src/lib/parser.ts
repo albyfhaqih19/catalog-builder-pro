@@ -127,5 +127,5 @@ export function syncCatalogDataToHtml(html: string, catalog: Catalog): string {
     });
   });
 
-  return doc.body.innerHTML;
+  return doc.documentElement ? doc.documentElement.outerHTML : doc.body.innerHTML;
 }

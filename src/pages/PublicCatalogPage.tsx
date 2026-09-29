@@ -81,7 +81,7 @@ export const PublicCatalogPage: React.FC = () => {
   // Filter products
   const filteredProducts = products.filter(p => {
     const matchesCat = selectedCat === 'all' || p.categoryId === selectedCat;
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = (p.name || '').toLowerCase().includes(search.toLowerCase()) || (p.description || '').toLowerCase().includes(search.toLowerCase());
     return matchesCat && matchesSearch;
   });
 
