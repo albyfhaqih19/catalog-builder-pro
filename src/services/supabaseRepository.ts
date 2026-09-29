@@ -14,57 +14,100 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+function catalogToDbPayload(catalog: Catalog) {
+  const themeObj = catalog.theme || {};
+  return {
+    id: catalog.id,
+    name: catalog.name || catalog.business?.name || 'Katalog Produk',
+    title: catalog.name || catalog.business?.name || 'Katalog Produk',
+    slug: catalog.slug,
+    status: catalog.status,
+    business: catalog.business,
+    theme: {
+      ...themeObj,
+      htmlContent: catalog.htmlContent || (themeObj as any).htmlContent || '',
+      sanitizedHtml: catalog.sanitizedHtml || (themeObj as any).sanitizedHtml || '',
+    },
+    products: catalog.products || [],
+    views: catalog.views || 0,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function dbRowToCatalog(row: any, localFallback?: Catalog | null): Catalog {
+  const themeObj = row.theme || {};
+  const htmlContent = row.htmlContent || themeObj.htmlContent || localFallback?.htmlContent || '';
+  const sanitizedHtml = row.sanitizedHtml || themeObj.sanitizedHtml || localFallback?.sanitizedHtml || '';
+
+  return {
+    id: row.id,
+    name: row.name || row.title || localFallback?.name || 'Katalog Produk',
+    slug: row.slug,
+    status: row.status,
+    business: row.business || localFallback?.business || {},
+    theme: themeObj,
+    products: row.products || localFallback?.products || [],
+    categories: row.categories || localFallback?.categories || [],
+    htmlContent,
+    sanitizedHtml,
+    cssContent: row.cssContent || themeObj.cssContent || '',
+    views: row.views || 0,
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
+  };
+}
+
 export class SupabaseCatalogRepository implements ICatalogRepository {
   private fallback = new LocalCatalogRepository();
 
   async getAllCatalogs(): Promise<Catalog[]> {
-    if (!supabase) return this.fallback.getAllCatalogs();
-    const { data, error } = await supabase.from('catalogs').select('*');
-    if (error || !data) return this.fallback.getAllCatalogs();
-    return data as Catalog[];
+    const localList = await this.fallback.getAllCatalogs();
+    if (!supabase) return localList;
+    try {
+      const { data, error } = await supabase.from('catalogs').select('*');
+      if (error || !data) return localList;
+      return data.map(row => {
+        const localMatch = localList.find(l => l.id === row.id);
+        return dbRowToCatalog(row, localMatch);
+      });
+    } catch {
+      return localList;
+    }
   }
 
   async getCatalogById(id: string): Promise<Catalog | null> {
     const local = await this.fallback.getCatalogById(id);
     if (!supabase) return local;
-    const { data, error } = await supabase.from('catalogs').select('*').eq('id', id).single();
-    if (error || !data) return local;
-
-    const remote = data as Catalog;
-    return {
-      ...remote,
-      htmlContent: remote.htmlContent || local?.htmlContent || '',
-      sanitizedHtml: remote.sanitizedHtml || local?.sanitizedHtml || '',
-    };
+    try {
+      const { data, error } = await supabase.from('catalogs').select('*').eq('id', id).single();
+      if (error || !data) return local;
+      return dbRowToCatalog(data, local);
+    } catch {
+      return local;
+    }
   }
 
   async getCatalogBySlug(slug: string): Promise<Catalog | null> {
     const local = await this.fallback.getCatalogBySlug(slug);
     if (!supabase) return local;
-    const { data, error } = await supabase.from('catalogs').select('*').eq('slug', slug).single();
-    if (error || !data) return local;
-
-    const remote = data as Catalog;
-    return {
-      ...remote,
-      htmlContent: remote.htmlContent || local?.htmlContent || '',
-      sanitizedHtml: remote.sanitizedHtml || local?.sanitizedHtml || '',
-    };
+    try {
+      const { data, error } = await supabase.from('catalogs').select('*').eq('slug', slug).single();
+      if (error || !data) return local;
+      return dbRowToCatalog(data, local);
+    } catch {
+      return local;
+    }
   }
 
   async saveCatalog(catalog: Catalog): Promise<Catalog> {
-    // Always persist to local fallback storage first
     const savedLocal = await this.fallback.saveCatalog(catalog);
     if (!supabase) return savedLocal;
 
     try {
-      const { data, error } = await supabase.from('catalogs').upsert(catalog).select().single();
+      const payload = catalogToDbPayload(catalog);
+      const { data, error } = await supabase.from('catalogs').upsert(payload).select().single();
       if (error || !data) return savedLocal;
-      return {
-        ...data as Catalog,
-        htmlContent: (data as Catalog).htmlContent || savedLocal.htmlContent,
-        sanitizedHtml: (data as Catalog).sanitizedHtml || savedLocal.sanitizedHtml,
-      };
+      return dbRowToCatalog(data, savedLocal);
     } catch {
       return savedLocal;
     }
@@ -73,7 +116,9 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
   async deleteCatalog(id: string): Promise<boolean> {
     await this.fallback.deleteCatalog(id);
     if (supabase) {
-      await supabase.from('catalogs').delete().eq('id', id);
+      try {
+        await supabase.from('catalogs').delete().eq('id', id);
+      } catch {}
     }
     return true;
   }
@@ -96,29 +141,20 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
     }
 
     try {
-      const updateData: any = {
-        status: 'published',
-        slug,
-        updatedAt: new Date().toISOString(),
-      };
-      if (localCatalog?.sanitizedHtml) updateData.sanitizedHtml = localCatalog.sanitizedHtml;
-      if (localCatalog?.htmlContent) updateData.htmlContent = localCatalog.htmlContent;
+      const payload = localCatalog ? catalogToDbPayload(localCatalog) : { id, status: 'published', slug };
+      payload.status = 'published';
+      payload.slug = slug;
 
       const { data, error } = await supabase
         .from('catalogs')
-        .update(updateData)
-        .eq('id', id)
+        .upsert(payload)
         .select()
         .single();
 
       if (error || !data) {
         return localCatalog || await this.fallback.publishCatalog(id, slug);
       }
-      return {
-        ...data as Catalog,
-        htmlContent: (data as Catalog).htmlContent || localCatalog?.htmlContent || '',
-        sanitizedHtml: (data as Catalog).sanitizedHtml || localCatalog?.sanitizedHtml || '',
-      };
+      return dbRowToCatalog(data, localCatalog);
     } catch {
       return localCatalog || await this.fallback.publishCatalog(id, slug);
     }
