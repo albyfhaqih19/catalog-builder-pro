@@ -23,9 +23,16 @@ export const StepPublish: React.FC<StepPublishProps> = ({ catalog, onPublishSucc
     setErrorMsg('');
     try {
       const uniqueSlug = await catalogRepository.generateUniqueSlug(slug, catalog.id);
+      const catalogToSave: Catalog = {
+        ...catalog,
+        status: 'published',
+        slug: uniqueSlug,
+        updatedAt: new Date().toISOString()
+      };
+      await catalogRepository.saveCatalog(catalogToSave);
       const published = await catalogRepository.publishCatalog(catalog.id, uniqueSlug);
       setSlug(uniqueSlug);
-      onPublishSuccess(published);
+      onPublishSuccess(published || catalogToSave);
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal mempublikasikan katalog');
     } finally {

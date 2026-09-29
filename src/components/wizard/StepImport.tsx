@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Catalog } from '../../types/catalog';
 import { parseCatalogHtml, syncCatalogDataToHtml } from '../../lib/parser';
+import { catalogRepository } from '../../services';
 import { FileCode, ShieldCheck, Check, AlertTriangle, ArrowRight, Trash2 } from 'lucide-react';
 
 interface StepImportProps {
@@ -13,7 +14,7 @@ export const StepImport: React.FC<StepImportProps> = ({ catalog, onImportSuccess
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'warning' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState<string>('');
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!rawHtmlInput.trim()) {
       alert('Silakan paste kode HTML dari Gemini / ChatGPT terlebih dahulu.');
       return;
@@ -41,6 +42,9 @@ export const StepImport: React.FC<StepImportProps> = ({ catalog, onImportSuccess
       htmlContent: cleanedCode,
       sanitizedHtml: syncedHtml,
     };
+
+    // Auto-persist catalog to storage immediately
+    await catalogRepository.saveCatalog(updatedCatalog);
 
     if (parseResult.isFullyLinked || parseResult.linkedCount > 0) {
       setImportStatus('success');

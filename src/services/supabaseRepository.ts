@@ -25,30 +25,56 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
   }
 
   async getCatalogById(id: string): Promise<Catalog | null> {
-    if (!supabase) return this.fallback.getCatalogById(id);
+    const local = await this.fallback.getCatalogById(id);
+    if (!supabase) return local;
     const { data, error } = await supabase.from('catalogs').select('*').eq('id', id).single();
-    if (error || !data) return this.fallback.getCatalogById(id);
-    return data as Catalog;
+    if (error || !data) return local;
+
+    const remote = data as Catalog;
+    return {
+      ...remote,
+      htmlContent: remote.htmlContent || local?.htmlContent || '',
+      sanitizedHtml: remote.sanitizedHtml || local?.sanitizedHtml || '',
+    };
   }
 
   async getCatalogBySlug(slug: string): Promise<Catalog | null> {
-    if (!supabase) return this.fallback.getCatalogBySlug(slug);
+    const local = await this.fallback.getCatalogBySlug(slug);
+    if (!supabase) return local;
     const { data, error } = await supabase.from('catalogs').select('*').eq('slug', slug).single();
-    if (error || !data) return this.fallback.getCatalogBySlug(slug);
-    return data as Catalog;
+    if (error || !data) return local;
+
+    const remote = data as Catalog;
+    return {
+      ...remote,
+      htmlContent: remote.htmlContent || local?.htmlContent || '',
+      sanitizedHtml: remote.sanitizedHtml || local?.sanitizedHtml || '',
+    };
   }
 
   async saveCatalog(catalog: Catalog): Promise<Catalog> {
-    if (!supabase) return this.fallback.saveCatalog(catalog);
-    const { data, error } = await supabase.from('catalogs').upsert(catalog).select().single();
-    if (error || !data) return this.fallback.saveCatalog(catalog);
-    return data as Catalog;
+    // Always persist to local fallback storage first
+    const savedLocal = await this.fallback.saveCatalog(catalog);
+    if (!supabase) return savedLocal;
+
+    try {
+      const { data, error } = await supabase.from('catalogs').upsert(catalog).select().single();
+      if (error || !data) return savedLocal;
+      return {
+        ...data as Catalog,
+        htmlContent: (data as Catalog).htmlContent || savedLocal.htmlContent,
+        sanitizedHtml: (data as Catalog).sanitizedHtml || savedLocal.sanitizedHtml,
+      };
+    } catch {
+      return savedLocal;
+    }
   }
 
   async deleteCatalog(id: string): Promise<boolean> {
-    if (!supabase) return this.fallback.deleteCatalog(id);
-    const { error } = await supabase.from('catalogs').delete().eq('id', id);
-    if (error) return this.fallback.deleteCatalog(id);
+    await this.fallback.deleteCatalog(id);
+    if (supabase) {
+      await supabase.from('catalogs').delete().eq('id', id);
+    }
     return true;
   }
 
@@ -57,15 +83,45 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
   }
 
   async publishCatalog(id: string, slug: string): Promise<Catalog> {
-    if (!supabase) return this.fallback.publishCatalog(id, slug);
-    const { data, error } = await supabase
-      .from('catalogs')
-      .update({ status: 'published', slug, updatedAt: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error || !data) return this.fallback.publishCatalog(id, slug);
-    return data as Catalog;
+    const localCatalog = await this.fallback.getCatalogById(id);
+    if (localCatalog) {
+      localCatalog.status = 'published';
+      localCatalog.slug = slug;
+      localCatalog.updatedAt = new Date().toISOString();
+      await this.fallback.saveCatalog(localCatalog);
+    }
+
+    if (!supabase) {
+      return localCatalog || await this.fallback.publishCatalog(id, slug);
+    }
+
+    try {
+      const updateData: any = {
+        status: 'published',
+        slug,
+        updatedAt: new Date().toISOString(),
+      };
+      if (localCatalog?.sanitizedHtml) updateData.sanitizedHtml = localCatalog.sanitizedHtml;
+      if (localCatalog?.htmlContent) updateData.htmlContent = localCatalog.htmlContent;
+
+      const { data, error } = await supabase
+        .from('catalogs')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error || !data) {
+        return localCatalog || await this.fallback.publishCatalog(id, slug);
+      }
+      return {
+        ...data as Catalog,
+        htmlContent: (data as Catalog).htmlContent || localCatalog?.htmlContent || '',
+        sanitizedHtml: (data as Catalog).sanitizedHtml || localCatalog?.sanitizedHtml || '',
+      };
+    } catch {
+      return localCatalog || await this.fallback.publishCatalog(id, slug);
+    }
   }
 
   async incrementViews(slug: string): Promise<number> {
