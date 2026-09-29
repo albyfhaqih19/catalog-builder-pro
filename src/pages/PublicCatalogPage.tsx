@@ -2,7 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Catalog, Product } from '../types/catalog';
 import { catalogRepository } from '../services';
+import { syncCatalogDataToHtml } from '../lib/parser';
 import { Phone, MapPin, Clock, MessageCircle, Search, ArrowLeft, Share2, Check, Lock, Download } from 'lucide-react';
+
+export function ensureStylesInHtml(html: string): string {
+  if (!html) return '';
+  let updated = html;
+  const tailwindScript = '<script src="https://cdn.tailwindcss.com"></script>';
+  const fontLinks = '<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">';
+
+  if (!updated.includes('tailwindcss.com')) {
+    if (updated.includes('<head>')) {
+      updated = updated.replace('<head>', `<head>\n  ${tailwindScript}\n  ${fontLinks}`);
+    } else if (updated.includes('<html')) {
+      updated = updated.replace(/<html[^>]*>/, `$& \n<head>\n  ${tailwindScript}\n  ${fontLinks}\n</head>`);
+    } else {
+      updated = `<!DOCTYPE html><html class="dark"><head>${tailwindScript}${fontLinks}</head><body>${updated}</body></html>`;
+    }
+  }
+  return updated;
+}
 
 export const PublicCatalogPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -76,6 +95,62 @@ export const PublicCatalogPage: React.FC = () => {
     );
   }
 
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
+  };
+
+  // IF CATALOG HAS CUSTOM HTML FROM CHATGPT/GEMINI -> RENDER 100% IDENTICAL CUSTOM HTML!
+  if (catalog.sanitizedHtml || catalog.htmlContent) {
+    const rawCustom = catalog.sanitizedHtml || catalog.htmlContent || '';
+    const syncedHtml = syncCatalogDataToHtml(rawCustom, catalog);
+    const finalHtmlDocument = ensureStylesInHtml(syncedHtml);
+
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-950">
+        {/* Top Navbar */}
+        <nav className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 shrink-0">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Dashboard Studio</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition shadow-xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Simpan PDF</span>
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
+                <span>{copied ? 'Link Ter-copy' : 'Bagikan'}</span>
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        {/* Public Canvas Container */}
+        <div className="flex-1 w-full h-[calc(100vh-53px)] bg-slate-950">
+          <iframe
+            title={catalog.name}
+            srcDoc={finalHtmlDocument}
+            className="w-full h-full border-none"
+          />
+        </div>
+      </div>
+    );
+  }
+
   const { business, products, categories, theme } = catalog;
 
   // Filter products
@@ -84,12 +159,6 @@ export const PublicCatalogPage: React.FC = () => {
     const matchesSearch = (p.name || '').toLowerCase().includes(search.toLowerCase()) || (p.description || '').toLowerCase().includes(search.toLowerCase());
     return matchesCat && matchesSearch;
   });
-
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
-  };
 
   const getWaLink = (product: Product) => {
     const cleanWa = business.whatsapp ? business.whatsapp.replace(/[^0-9]/g, '') : '6281234567890';
