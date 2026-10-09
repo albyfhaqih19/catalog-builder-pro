@@ -4,11 +4,16 @@ import { MediaItem } from '../types/media';
 import { ICatalogRepository } from './repository';
 import { LocalCatalogRepository } from './localRepository';
 
-const rawUrl = import.meta.env.VITE_SUPABASE_URL || 'https://zzcbqkmwkfmttztriufv.supabase.co';
+const rawUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6Y2Jxa213a2ZtdHR6dHJpdWZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI2NjY0MDAsImV4cCI6MjA1ODI0MjQwMH0.placeholder';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey && !supabaseAnonKey.includes('placeholder'));
+export const isSupabaseConfigured = Boolean(
+  supabaseUrl &&
+  supabaseAnonKey &&
+  !supabaseAnonKey.includes('placeholder') &&
+  !supabaseAnonKey.includes('eyJhbG')
+);
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
