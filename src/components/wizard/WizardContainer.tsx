@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Catalog, Product, Category, ThemeConfig } from '../../types/catalog';
 import { catalogRepository } from '../../services';
-import { useAuth } from '../../context/AuthContext';
 import { parseCatalogHtml, syncCatalogDataToHtml } from '../../lib/parser';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
@@ -39,10 +38,10 @@ const WIZARD_STEPS = [
 
 export const WizardContainer: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const catalogId = searchParams.get('id');
-  const initialStep = searchParams.get('step') || '01';
+  const requestedStep = searchParams.get('step') || '01';
+  const initialStep = WIZARD_STEPS.some(step => step.id === requestedStep) ? requestedStep : '01';
 
   const [currentStep, setCurrentStep] = useState<string>(initialStep);
   const [isSaving, setIsSaving] = useState(false);
@@ -89,13 +88,6 @@ export const WizardContainer: React.FC = () => {
   });
 
   useEffect(() => {
-    const urlStep = searchParams.get('step');
-    if (urlStep && urlStep !== currentStep && WIZARD_STEPS.some(s => s.id === urlStep)) {
-      setCurrentStep(urlStep);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
     if (catalogId) {
       catalogRepository.getCatalogById(catalogId).then(existing => {
         if (existing) setCatalog(existing);
@@ -103,24 +95,19 @@ export const WizardContainer: React.FC = () => {
     }
   }, [catalogId]);
 
-  const handleSaveDraft = async () => {
+  const handleSaveDraft = async (catalogToSave: Catalog = catalog) => {
     setIsSaving(true);
     try {
-      const catalogToSave = {
-        ...catalog,
-        userEmail: catalog.userEmail || user?.email,
-        userId: catalog.userId || user?.id,
-      };
       const saved = await catalogRepository.saveCatalog(catalogToSave);
+      if (!saved) throw new Error('Katalog gagal disimpan.');
       setCatalog(saved);
       if (!catalogId) {
-        const newParams = new URLSearchParams(searchParams);
-        newParams.set('id', saved.id);
-        newParams.set('step', currentStep);
-        setSearchParams(newParams, { replace: true });
+        setSearchParams({ id: saved.id, step: currentStep });
       }
-    } catch (err) {
-      console.error("Gagal simpan draft:", err);
+      return saved;
+    } catch (error: any) {
+      alert(error?.message || 'Katalog gagal disimpan. Coba lagi.');
+      throw error;
     } finally {
       setIsSaving(false);
     }
@@ -131,27 +118,30 @@ export const WizardContainer: React.FC = () => {
       alert("Nama Bisnis / Toko wajib diisi terlebih dahulu!");
       return;
     }
+    let catalogToSave = catalog;
     if (currentStep === '05' && catalog.htmlContent && !catalog.sanitizedHtml) {
       const parsed = parseCatalogHtml(catalog.htmlContent, catalog);
       if (parsed.sanitizedHtml) {
-        catalog.sanitizedHtml = syncCatalogDataToHtml(parsed.sanitizedHtml, catalog);
+        catalogToSave = {
+          ...catalog,
+          sanitizedHtml: syncCatalogDataToHtml(parsed.sanitizedHtml, catalog),
+        };
+        setCatalog(catalogToSave);
       }
     }
-
-    const stepIdx = WIZARD_STEPS.findIndex(s => s.id === currentStep);
-    const nextId = stepIdx < WIZARD_STEPS.length - 1 ? WIZARD_STEPS[stepIdx + 1].id : currentStep;
-
-    // Pindah step lebih dulu di UI agar responsif seketika
-    if (nextId !== currentStep) {
-      setCurrentStep(nextId);
-      const newParams = new URLSearchParams(searchParams);
-      newParams.set('id', catalog.id);
-      newParams.set('step', nextId);
-      setSearchParams(newParams, { replace: true });
+    try {
+      const saved = await handleSaveDraft(catalogToSave);
+      const stepIdx = WIZARD_STEPS.findIndex(s => s.id === currentStep);
+      if (stepIdx < 0) return;
+      if (stepIdx < WIZARD_STEPS.length - 1) {
+        const nextId = WIZARD_STEPS[stepIdx + 1].id;
+        setCurrentStep(nextId);
+        setSearchParams({ id: saved.id, step: nextId });
+      }
+    } catch {
+      return;
     }
-
-    // Jalankan simpan draft di background
-    handleSaveDraft().catch(console.error);
+    return;
   };
 
   const handlePrevStep = () => {
@@ -159,7 +149,7 @@ export const WizardContainer: React.FC = () => {
     if (stepIdx > 0) {
       const prevId = WIZARD_STEPS[stepIdx - 1].id;
       setCurrentStep(prevId);
-      setSearchParams({ id: catalog.id, step: prevId }, { replace: true });
+      setSearchParams({ id: catalog.id, step: prevId });
     }
   };
 
@@ -176,7 +166,7 @@ export const WizardContainer: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={handleSaveDraft}
+            onClick={() => { void handleSaveDraft(); }}
             disabled={isSaving}
             className="flex items-center gap-2 border border-slate-300 hover:bg-slate-100 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold transition"
           >
