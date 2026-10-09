@@ -34,11 +34,23 @@ export class UserService {
     try {
       if (typeof localStorage === 'undefined') return [];
       const data = localStorage.getItem(USERS_STORAGE_KEY);
-      if (!data) return [];
-      return JSON.parse(data);
-    } catch {
-      return [];
-    }
+      if (data) {
+        return JSON.parse(data);
+      }
+    } catch {}
+
+    // Default fallback user so app works out of the box locally & on fresh deployment
+    const defaultOwner: UserProfile = {
+      id: 'usr-default-owner',
+      email: 'owner@admin.com',
+      name: 'Owner Admin',
+      storeName: 'Toko Admin',
+      role: 'admin',
+      status: 'approved',
+      createdAt: new Date().toISOString(),
+    };
+    this.saveStoredUsers([defaultOwner]);
+    return [defaultOwner];
   }
 
   private saveStoredUsers(users: UserProfile[]) {
