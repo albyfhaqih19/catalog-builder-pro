@@ -369,25 +369,35 @@ export const StepProducts: React.FC<StepProductsProps> = ({ catalog, onChange })
                 </div>
               </div>
 
-              {/* Image Input & Media Picker */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">URL Gambar Produk</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={editingProduct.images[0] || ''}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, images: [e.target.value] })}
-                    className="flex-1 px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-sky-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsMediaOpen(true)}
-                    className="bg-slate-800 text-white px-3 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 transition"
-                  >
-                    Buka Media
-                  </button>
-                </div>
-              </div>
+        {/* Image Input & Media Picker */}
+        <div>
+          <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Gambar Produk</label>
+          <div className="flex items-center gap-3">
+            <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+              {editingProduct.images[0] ? (
+                <img src={editingProduct.images[0]} alt="Preview" className="w-full h-full object-cover" />
+              ) : (
+                <ImageIcon className="w-6 h-6 text-slate-400" />
+              )}
+            </div>
+            <div className="flex-1 flex gap-2">
+              <input
+                type="text"
+                placeholder="https://... atau pilih dari media"
+                value={editingProduct.images[0] || ''}
+                onChange={(e) => setEditingProduct({ ...editingProduct, images: [e.target.value] })}
+                className="flex-1 px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-sky-500"
+              />
+              <button
+                type="button"
+                onClick={() => setIsMediaOpen(true)}
+                className="bg-slate-800 text-white px-3 py-2 rounded-xl text-xs font-semibold hover:bg-slate-900 shrink-0 transition"
+              >
+                Pilih Media
+              </button>
+            </div>
+          </div>
+        </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Deskripsi Lengkap Produk</label>
