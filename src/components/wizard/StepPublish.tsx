@@ -29,10 +29,14 @@ export const StepPublish: React.FC<StepPublishProps> = ({ catalog, onPublishSucc
         slug: uniqueSlug,
         updatedAt: new Date().toISOString()
       };
-      await catalogRepository.saveCatalog(catalogToSave);
-      const published = await catalogRepository.publishCatalog(catalog.id, uniqueSlug);
       setSlug(uniqueSlug);
-      onPublishSuccess(published || catalogToSave);
+      // Update UI state first for instant response
+      onPublishSuccess(catalogToSave);
+      
+      // Save background
+      catalogRepository.saveCatalog(catalogToSave)
+        .then(() => catalogRepository.publishCatalog(catalog.id, uniqueSlug))
+        .catch((err) => console.error("Error saving published catalog:", err));
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal mempublikasikan katalog');
     } finally {
