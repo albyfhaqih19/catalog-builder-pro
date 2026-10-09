@@ -107,8 +107,10 @@ export const WizardContainer: React.FC = () => {
       const saved = await catalogRepository.saveCatalog(catalogToSave);
       setCatalog(saved);
       if (!catalogId) {
-        setSearchParams({ id: saved.id, step: currentStep });
+        setSearchParams({ id: saved.id, step: currentStep }, { replace: true });
       }
+    } catch (err) {
+      console.error("Gagal simpan draft:", err);
     } finally {
       setIsSaving(false);
     }
@@ -125,13 +127,18 @@ export const WizardContainer: React.FC = () => {
         catalog.sanitizedHtml = syncCatalogDataToHtml(parsed.sanitizedHtml, catalog);
       }
     }
-    await handleSaveDraft();
+
     const stepIdx = WIZARD_STEPS.findIndex(s => s.id === currentStep);
-    if (stepIdx < WIZARD_STEPS.length - 1) {
-      const nextId = WIZARD_STEPS[stepIdx + 1].id;
+    const nextId = stepIdx < WIZARD_STEPS.length - 1 ? WIZARD_STEPS[stepIdx + 1].id : currentStep;
+
+    // Pindah step lebih dulu di UI agar responsif seketika
+    if (nextId !== currentStep) {
       setCurrentStep(nextId);
-      setSearchParams({ id: catalog.id, step: nextId });
+      setSearchParams({ id: catalog.id, step: nextId }, { replace: true });
     }
+
+    // Jalankan simpan draft di background
+    handleSaveDraft().catch(console.error);
   };
 
   const handlePrevStep = () => {
@@ -139,7 +146,7 @@ export const WizardContainer: React.FC = () => {
     if (stepIdx > 0) {
       const prevId = WIZARD_STEPS[stepIdx - 1].id;
       setCurrentStep(prevId);
-      setSearchParams({ id: catalog.id, step: prevId });
+      setSearchParams({ id: catalog.id, step: prevId }, { replace: true });
     }
   };
 
