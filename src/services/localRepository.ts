@@ -302,7 +302,17 @@ export class LocalMediaRepository implements IMediaRepository {
 
   private saveStoredMedia(items: MediaItem[]) {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(MEDIA_STORAGE_KEY, JSON.stringify(items));
+      try {
+        localStorage.setItem(MEDIA_STORAGE_KEY, JSON.stringify(items));
+      } catch (err: any) {
+        if (err?.name === 'QuotaExceededError' || err?.code === 22) {
+          // If storage full, keep latest 10 items to prevent crash
+          const trimmed = items.slice(0, 10);
+          try {
+            localStorage.setItem(MEDIA_STORAGE_KEY, JSON.stringify(trimmed));
+          } catch {}
+        }
+      }
     }
   }
 
@@ -311,26 +321,52 @@ export class LocalMediaRepository implements IMediaRepository {
   }
 
   async uploadMedia(file: File): Promise<MediaItem> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        const item: MediaItem = {
-          id: 'med-' + Date.now().toString(36),
-          name: file.name,
-          url: base64,
-          size: file.size,
-          type: file.type,
-          createdAt: new Date().toISOString(),
+    // Canvas client-side compression to avoid gigantic Base64 string & localStorage QuotaExceeded
+    const compressImage = (imageFile: File, maxWidth = 800, quality = 0.8): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(e.target?.result as string);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            resolve(dataUrl);
+          };
+          img.onerror = () => resolve(e.target?.result as string);
+          img.src = e.target?.result as string;
         };
-        const items = this.getStoredMedia();
-        items.unshift(item);
-        this.saveStoredMedia(items);
-        resolve(item);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+        reader.onerror = reject;
+        reader.readAsDataURL(imageFile);
+      });
+    };
+
+    const base64 = await compressImage(file);
+    const item: MediaItem = {
+      id: 'med-' + Date.now().toString(36),
+      name: file.name,
+      url: base64,
+      size: file.size,
+      type: file.type,
+      createdAt: new Date().toISOString(),
+    };
+    const items = this.getStoredMedia();
+    items.unshift(item);
+    this.saveStoredMedia(items);
+    return item;
   }
 
   async uploadBase64(name: string, base64: string): Promise<MediaItem> {

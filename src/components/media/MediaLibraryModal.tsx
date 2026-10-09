@@ -40,10 +40,12 @@ export const MediaLibraryModal: React.FC<MediaLibraryModalProps> = ({
       const uploaded = await mediaRepository.uploadMedia(file);
       await loadMedia();
       setSelectedUrl(uploaded.url);
-    } catch (err) {
-      alert('Gagal mengupload gambar. Silakan coba lagi.');
+    } catch (err: any) {
+      alert(err?.message || 'Gagal mengupload gambar. Silakan coba lagi.');
     } finally {
       setIsUploading(false);
+      // Reset input value so re-selecting the same file triggers onChange
+      e.target.value = '';
     }
   };
 
