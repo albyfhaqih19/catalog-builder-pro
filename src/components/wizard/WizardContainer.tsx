@@ -89,6 +89,13 @@ export const WizardContainer: React.FC = () => {
   });
 
   useEffect(() => {
+    const urlStep = searchParams.get('step');
+    if (urlStep && urlStep !== currentStep && WIZARD_STEPS.some(s => s.id === urlStep)) {
+      setCurrentStep(urlStep);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (catalogId) {
       catalogRepository.getCatalogById(catalogId).then(existing => {
         if (existing) setCatalog(existing);
@@ -107,7 +114,10 @@ export const WizardContainer: React.FC = () => {
       const saved = await catalogRepository.saveCatalog(catalogToSave);
       setCatalog(saved);
       if (!catalogId) {
-        setSearchParams({ id: saved.id, step: currentStep }, { replace: true });
+        const newParams = new URLSearchParams(searchParams);
+        newParams.set('id', saved.id);
+        newParams.set('step', currentStep);
+        setSearchParams(newParams, { replace: true });
       }
     } catch (err) {
       console.error("Gagal simpan draft:", err);
@@ -134,7 +144,10 @@ export const WizardContainer: React.FC = () => {
     // Pindah step lebih dulu di UI agar responsif seketika
     if (nextId !== currentStep) {
       setCurrentStep(nextId);
-      setSearchParams({ id: catalog.id, step: nextId }, { replace: true });
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('id', catalog.id);
+      newParams.set('step', nextId);
+      setSearchParams(newParams, { replace: true });
     }
 
     // Jalankan simpan draft di background
