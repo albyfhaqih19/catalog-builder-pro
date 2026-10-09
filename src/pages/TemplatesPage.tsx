@@ -4,9 +4,11 @@ import { CATALOG_TEMPLATES } from '../lib/templates';
 import { useNavigate } from 'react-router-dom';
 import { LayoutTemplate, Sparkles, ArrowRight } from 'lucide-react';
 import { catalogRepository } from '../services';
+import { useAuth } from '../context/AuthContext';
 
 export const TemplatesPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const handleUseTemplate = async (templateId: string) => {
     const template = CATALOG_TEMPLATES.find(t => t.id === templateId);
@@ -14,6 +16,8 @@ export const TemplatesPage: React.FC = () => {
 
     const newCatalog = await catalogRepository.saveCatalog({
       id: 'cat-' + Date.now().toString(36),
+      userEmail: user?.email,
+      userId: user?.id,
       name: template.sampleCatalog.name || template.name,
       slug: await catalogRepository.generateUniqueSlug(template.name),
       status: 'draft',

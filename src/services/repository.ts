@@ -2,7 +2,7 @@ import { Catalog, Product, Category } from '../types/catalog';
 import { MediaItem } from '../types/media';
 
 export interface ICatalogRepository {
-  getAllCatalogs(): Promise<Catalog[]>;
+  getAllCatalogs(userEmail?: string): Promise<Catalog[]>;
   getCatalogById(id: string): Promise<Catalog | null>;
   getCatalogBySlug(slug: string): Promise<Catalog | null>;
   saveCatalog(catalog: Catalog): Promise<Catalog>;

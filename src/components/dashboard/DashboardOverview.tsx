@@ -169,13 +169,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ catalogs, 
                     </button>
 
                     {cat.status === 'published' && (
-                      <button
-                        onClick={() => navigate(`/catalog/${cat.slug}`)}
+                      <a
+                        href={`/catalog/${cat.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="flex items-center gap-1.5 font-semibold text-emerald-600 hover:text-emerald-700 transition"
                       >
                         <Globe className="w-3.5 h-3.5" />
                         <span>Lihat Publik</span>
-                      </button>
+                      </a>
                     )}
 
                     <button

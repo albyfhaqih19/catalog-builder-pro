@@ -141,8 +141,10 @@ export class LocalCatalogRepository implements ICatalogRepository {
     }
   }
 
-  async getAllCatalogs(): Promise<Catalog[]> {
-    return this.getStoredCatalogs();
+  async getAllCatalogs(userEmail?: string): Promise<Catalog[]> {
+    const list = this.getStoredCatalogs();
+    if (!userEmail) return list;
+    return list.filter(c => !c.userEmail || c.userEmail === userEmail);
   }
 
   async getCatalogById(id: string): Promise<Catalog | null> {

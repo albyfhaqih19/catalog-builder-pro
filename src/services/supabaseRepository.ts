@@ -18,6 +18,8 @@ function catalogToDbPayload(catalog: Catalog) {
   const themeObj = catalog.theme || {};
   return {
     id: catalog.id,
+    user_email: catalog.userEmail || catalog.business?.email || null,
+    user_id: catalog.userId || null,
     name: catalog.name || catalog.business?.name || 'Katalog Produk',
     title: catalog.name || catalog.business?.name || 'Katalog Produk',
     slug: catalog.slug,
@@ -44,6 +46,8 @@ function dbRowToCatalog(row: any, localFallback?: Catalog | null): Catalog {
 
   return {
     id: row.id,
+    userEmail: row.user_email || row.userEmail || localFallback?.userEmail,
+    userId: row.user_id || row.userId || localFallback?.userId,
     name: row.name || row.title || localFallback?.name || 'Katalog Produk',
     slug: row.slug,
     status: row.status,
@@ -63,11 +67,15 @@ function dbRowToCatalog(row: any, localFallback?: Catalog | null): Catalog {
 export class SupabaseCatalogRepository implements ICatalogRepository {
   private fallback = new LocalCatalogRepository();
 
-  async getAllCatalogs(): Promise<Catalog[]> {
-    const localList = await this.fallback.getAllCatalogs();
+  async getAllCatalogs(userEmail?: string): Promise<Catalog[]> {
+    const localList = await this.fallback.getAllCatalogs(userEmail);
     if (!supabase) return localList;
     try {
-      const { data, error } = await supabase.from('catalogs').select('*');
+      let query = supabase.from('catalogs').select('*');
+      if (userEmail) {
+        query = query.or(`user_email.eq.${userEmail},user_email.is.null`);
+      }
+      const { data, error } = await query;
       if (error || !data) return localList;
       return data.map(row => {
         const localMatch = localList.find(l => l.id === row.id);

@@ -63,6 +63,8 @@ export interface CustomBlock {
 
 export interface Catalog {
   id: string;
+  userEmail?: string;
+  userId?: string;
   name: string;
   slug: string;
   business: BusinessInfo;

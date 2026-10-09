@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Catalog, Product, Category, ThemeConfig } from '../../types/catalog';
 import { catalogRepository } from '../../services';
+import { useAuth } from '../../context/AuthContext';
 import { parseCatalogHtml, syncCatalogDataToHtml } from '../../lib/parser';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
@@ -38,6 +39,7 @@ const WIZARD_STEPS = [
 
 export const WizardContainer: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const catalogId = searchParams.get('id');
   const initialStep = searchParams.get('step') || '01';
@@ -97,7 +99,12 @@ export const WizardContainer: React.FC = () => {
   const handleSaveDraft = async () => {
     setIsSaving(true);
     try {
-      const saved = await catalogRepository.saveCatalog(catalog);
+      const catalogToSave = {
+        ...catalog,
+        userEmail: catalog.userEmail || user?.email,
+        userId: catalog.userId || user?.id,
+      };
+      const saved = await catalogRepository.saveCatalog(catalogToSave);
       setCatalog(saved);
       if (!catalogId) {
         setSearchParams({ id: saved.id, step: currentStep });

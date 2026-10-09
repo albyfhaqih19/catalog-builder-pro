@@ -2,22 +2,24 @@
 import { MainLayout } from '../components/layout/MainLayout';
 import { Catalog } from '../types/catalog';
 import { catalogRepository } from '../services';
+import { useAuth } from '../context/AuthContext';
 import { Search, Plus, ExternalLink, Edit3, Trash2, Eye, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const CatalogsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadCatalogs();
-  }, []);
+  }, [user]);
 
   const loadCatalogs = async () => {
     setLoading(true);
-    const list = await catalogRepository.getAllCatalogs();
+    const list = await catalogRepository.getAllCatalogs(user?.email);
     setCatalogs(list || []);
     setLoading(false);
   };
@@ -112,13 +114,15 @@ export const CatalogsPage: React.FC = () => {
                     </button>
 
                     {catalog.status === 'published' && (
-                      <button
-                        onClick={() => navigate(`/catalog/${catalog.slug}`)}
+                      <a
+                        href={`/catalog/${catalog.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="flex items-center justify-center p-2 rounded-xl bg-sky-50 text-sky-600 hover:bg-sky-100 transition"
-                        title="Buka Link Publik"
+                        title="Buka Link Publik di Tab Baru"
                       >
                         <ExternalLink className="w-4 h-4" />
-                      </button>
+                      </a>
                     )}
 
                     <button
